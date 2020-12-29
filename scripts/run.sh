@@ -1,0 +1,3 @@
+#python tools/train.py  configs/recognition/csn/ircsn_ig65m_pretrained_bnfrozen_r152_32x2x1_58e_kinetics400_rgb.py --resume-from  work_dirs/ircsn_ig65m_pretrained_bnfrozen_r152_32x2x1_58e_kinetics400_rgb/latest.pth
+python tools/train.py  configs/recognition/slowfast/slowfast_r50_4x16x1_256e_kinetics400_rgb.py --resume-from  work_dirs/slowfast_r50_3d_4x16x1_256e_kinetics400_rgb/latest.pth
+ # work_dirs/slowfast_r50_3d_4x16x1_256e_kinetics400_rgb/latest.pth

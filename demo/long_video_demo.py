@@ -30,7 +30,7 @@ def parse_args():
         description='MMAction2 predict different labels in a long video demo')
     parser.add_argument('config', help='test config file path')
     parser.add_argument('checkpoint', help='checkpoint file/url')
-    parser.add_argument('video_path', help='video file/url')
+    parser.add_argument('video', help='video file/url')
     parser.add_argument('label', help='label file')
     parser.add_argument('out_file', help='output filename')
     parser.add_argument(
@@ -43,26 +43,17 @@ def parse_args():
     parser.add_argument(
         '--threshold',
         type=float,
-        default=0.01,
+        default=0.7,
         help='recognition score threshold')
-    parser.add_argument(
-        '--stride',
-        type=float,
-        default=0,
-        help=('the prediction stride equals to stride * sample_length '
-              '(sample_length indicates the size of temporal window from '
-              'which you sample frames, which equals to '
-              'clip_len x frame_interval), if set as 0, the '
-              'prediction stride is 1'))
     args = parser.parse_args()
     return args
 
 
-def show_results(model, data, label, args):
-    frame_queue = deque(maxlen=args.sample_length)
-    result_queue = deque(maxlen=1)
-
-    cap = cv2.VideoCapture(args.video_path)
+def show_results():
+    cap = cv2.VideoCapture('/home/ww/tools/image/office/2020-12-10_14-54-03.mp4')
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 500)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 480)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
     num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -71,34 +62,41 @@ def show_results(model, data, label, args):
     msg = 'Preparing action recognition ...'
     text_info = {}
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    frame_size = (frame_width, frame_height)
+    frame_size = (frame_width//2, frame_height//2)
 
     ind = 0
-    video_writer = cv2.VideoWriter(args.out_file, fourcc, fps, frame_size)
+    video_writer = cv2.VideoWriter(out_file, fourcc, fps, frame_size)
     prog_bar = mmcv.ProgressBar(num_frames)
     backup_frames = []
 
     while ind < num_frames:
         ind += 1
         prog_bar.update()
-        ret, frame = cap.read()
-        if frame is None:
+        ret, frame1 = cap.read()
+        if frame1 is None:
             # drop it when encounting None
             continue
+
+        x1 = 300
+        y1 = 150
+        x2 = 600
+        y2 = 500 
+        frame = frame1[y1:y2, x1:x2, ...]
+
         backup_frames.append(np.array(frame)[:, :, ::-1])
-        if ind == args.sample_length:
+        if ind == sample_length:
             # provide a quick show at the beginning
             frame_queue.extend(backup_frames)
             backup_frames = []
-        elif ((len(backup_frames) == args.input_step
-               and ind > args.sample_length) or ind == num_frames):
+        elif ((len(backup_frames) == input_step and ind > sample_length)
+              or ind == num_frames):
             # pick a frame from the backup
             # when the backup is full or reach the last frame
             chosen_frame = random.choice(backup_frames)
             backup_frames = []
             frame_queue.append(chosen_frame)
 
-        ret, scores = inference(model, data, args, frame_queue)
+        ret, scores = inference()
 
         if ret:
             num_selected_labels = min(len(label), 5)
@@ -113,59 +111,66 @@ def show_results(model, data, label, args):
             results = result_queue.popleft()
             for i, result in enumerate(results):
                 selected_label, score = result
-                if score < args.threshold:
+                if score < threshold:
                     break
                 location = (0, 40 + i * 20)
                 text = selected_label + ': ' + str(round(score, 2))
                 text_info[location] = text
-                cv2.putText(frame, text, location, FONTFACE, FONTSCALE,
+                cv2.rectangle(frame1, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(frame1, text, location, FONTFACE, FONTSCALE,
                             FONTCOLOR, THICKNESS, LINETYPE)
         elif len(text_info):
             for location, text in text_info.items():
-                cv2.putText(frame, text, location, FONTFACE, FONTSCALE,
+                cv2.rectangle(frame1, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(frame1, text, location, FONTFACE, FONTSCALE,
                             FONTCOLOR, THICKNESS, LINETYPE)
         else:
-            cv2.putText(frame, msg, (0, 40), FONTFACE, FONTSCALE, MSGCOLOR,
+            cv2.rectangle(frame1, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(frame1, msg, (0, 40), FONTFACE, FONTSCALE, MSGCOLOR,
                         THICKNESS, LINETYPE)
-        video_writer.write(frame)
+
+        size = (int(frame1.shape[1]*0.5), int(frame1.shape[0]*0.5))  
+        frame1 = cv2.resize(frame1, size, interpolation=cv2.INTER_AREA)
+        cv2.imwrite("1.jpg", frame1)
+        video_writer.write(frame1)
     cap.release()
+    video_writer.release()
     cv2.destroyAllWindows()
 
 
-def inference(model, data, args, frame_queue):
-    if len(frame_queue) != args.sample_length:
+
+def inference():
+    if len(frame_queue) != sample_length:
         # Do no inference when there is no enough frames
         return False, None
 
     cur_windows = list(np.array(frame_queue))
+    img = frame_queue.popleft()
     if data['img_shape'] is None:
-        data['img_shape'] = frame_queue[0].shape[:2]
-
+        data['img_shape'] = img.shape[:2]
     cur_data = data.copy()
     cur_data['imgs'] = cur_windows
-    cur_data = args.test_pipeline(cur_data)
+    cur_data = test_pipeline(cur_data)
     cur_data = collate([cur_data], samples_per_gpu=1)
     if next(model.parameters()).is_cuda:
-        cur_data = scatter(cur_data, [args.device])[0]
+        cur_data = scatter(cur_data, [device])[0]
     with torch.no_grad():
         scores = model(return_loss=False, **cur_data)[0]
-
-    if args.stride > 0:
-        pred_stride = int(args.sample_length * args.stride)
-        for i in range(pred_stride):
-            frame_queue.popleft()
-
-    # for case ``args.stride=0``
-    # deque will automatically popleft one element
-
     return True, scores
 
 
 def main():
-    args = parse_args()
+    global frame_queue, threshold, sample_length, data, test_pipeline, model, \
+        out_file, video_path, device, input_step, label, result_queue
 
-    args.device = torch.device(args.device)
-    model = init_recognizer(args.config, args.checkpoint, device=args.device)
+    args = parse_args()
+    input_step = args.input_step
+    threshold = args.threshold
+    video_path = args.video
+    out_file = args.out_file
+
+    device = torch.device(args.device)
+    model = init_recognizer(args.config, args.checkpoint, device=device)
     data = dict(img_shape=None, modality='RGB', label=-1)
     with open(args.label, 'r') as f:
         label = [line.strip() for line in f]
@@ -185,12 +190,10 @@ def main():
             # remove step to decode frames
             pipeline_.remove(step)
     test_pipeline = Compose(pipeline_)
-
     assert sample_length > 0
-    args.sample_length = sample_length
-    args.test_pipeline = test_pipeline
-
-    show_results(model, data, label, args)
+    frame_queue = deque(maxlen=sample_length)
+    result_queue = deque(maxlen=1)
+    show_results()
 
 
 if __name__ == '__main__':

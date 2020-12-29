@@ -13,7 +13,7 @@ from mmaction.datasets.pipelines import Compose
 
 FONTFACE = cv2.FONT_HERSHEY_COMPLEX_SMALL
 FONTSCALE = 1
-FONTCOLOR = (255, 255, 255)  # BGR, white
+FONTCOLOR = (0, 255, 255)  # BGR, white
 MSGCOLOR = (128, 128, 128)  # BGR, gray
 THICKNESS = 1
 LINETYPE = 1
@@ -36,7 +36,7 @@ def parse_args():
     parser.add_argument(
         '--threshold',
         type=float,
-        default=0.01,
+        default=0.05,
         help='recognition score threshold')
     parser.add_argument(
         '--average-size',
@@ -54,6 +54,8 @@ def show_results():
     while True:
         msg = 'Waiting for action ...'
         ret, frame = camera.read()
+        frame = frame[200:500, 400:600, ...]
+        #cv2.imshow('seg',segframe)
         frame_queue.append(np.array(frame[:, :, ::-1]))
 
         if len(result_queue) != 0:
@@ -75,8 +77,8 @@ def show_results():
                             FONTCOLOR, THICKNESS, LINETYPE)
 
         else:
-            cv2.putText(frame, msg, (0, 40), FONTFACE, FONTSCALE, MSGCOLOR,
-                        THICKNESS, LINETYPE)
+            cv2.putText(frame, msg, (0, 40), FONTFACE, 1, MSGCOLOR,
+                        1, LINETYPE)
 
         cv2.imshow('camera', frame)
         ch = cv2.waitKey(1)
@@ -136,7 +138,12 @@ def main():
 
     device = torch.device(args.device)
     model = init_recognizer(args.config, args.checkpoint, device=device)
+
     camera = cv2.VideoCapture(args.camera_id)
+    #camera = cv2.VideoCapture('/home/ww/tools/image/office/2020-12-10_14-54-03.mp4')
+
+    camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     data = dict(img_shape=None, modality='RGB', label=-1)
 
     with open(args.label, 'r') as f:
