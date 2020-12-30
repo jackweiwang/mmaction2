@@ -1,2 +1,2 @@
-python demo/webcam_demo.py  /home/ww/source/actionRec/mmaction2/work_dirs/ircsn_ig65m_pretrained_bnfrozen_r152_32x2x1_58e_kinetics400_rgb/ircsn_ig65m_pretrained_bnfrozen_r152_32x2x1_58e_kinetics400_rgb.py   /home/ww/source/actionRec/mmaction2/work_dirs/ircsn_ig65m_pretrained_bnfrozen_r152_32x2x1_58e_kinetics400_rgb/latest.pth   /home/ww/source/actionRec/mmaction2/work_dirs/label_map_new.txt
+python demo/webcam_demo.py  data/ircsn_ig65m_pretrained_bnfrozen_r152_32x2x1_58e_kinetics400_rgb/ircsn_ig65m_pretrained_bnfrozen_r152_32x2x1_58e_kinetics400_rgb.py   data/ircsn_ig65m_pretrained_bnfrozen_r152_32x2x1_58e_kinetics400_rgb/latest.pth  data/label_map_new.txt
 
